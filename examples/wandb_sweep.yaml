@@ -1,0 +1,14 @@
+# Example wandb sweep config for testing dropout/norm/skip/bottleneck influence
+method: grid
+metric:
+  name: avg_val_loss
+  goal: minimize
+parameters:
+  dropout:
+    values: [0.0, 0.2, 0.4]
+  norm:
+    values: ["batch", "layer", null]
+  use_skip:
+    values: [true, false]
+  optimizer.lr:
+    values: [0.0005, 0.001, 0.005]

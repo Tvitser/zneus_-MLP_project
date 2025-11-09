@@ -1,0 +1,28 @@
+{
+  "experiment_name": "speeddating_mlp_exp_v1_wandb_v2",
+  "csv_path": "project/speeddating.csv",
+  "target_col": "match",
+  "hidden_dims": [64, 32, 16],
+  "activation": "gelu",
+  "dropout": 0.3,
+  "norm": "batch",
+  "use_skip": true,
+  "bottleneck": {
+    "position": "middle",
+    "factor": 4
+  },
+  "optimizer": {
+    "type": "adam",
+    "lr": 5e-4
+  },
+  "epochs": 30,
+  "batch_size": 128,
+  "seed": 42,
+  "output_dir": "runs/speeddating_wandb",
+  "categorical_max_unique": 50,
+  "show_plots": false,
+  "use_wandb": true,
+  "wandb_project": "speeddating-mlp",
+  "wandb_entity": null,
+  "wandb_run_name": "speeddating_v2_test"
+}

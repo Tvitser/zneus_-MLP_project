@@ -11,7 +11,7 @@ warnings.filterwarnings('ignore')
 
 
 class SpeedDatingEDA:
-    def __init__(self, data, auto_clean=True, drop_threshold=0.5, outlier_z=4.0, verbose=False):
+    def __init__(self, data, auto_clean=True, drop_threshold=0.5, verbose=False, show_plots=False):
         """
         Initialize the EDA class with the speed dating dataset
 
@@ -29,9 +29,8 @@ class SpeedDatingEDA:
 
         # Cleaning parameters
         self.drop_threshold = drop_threshold
-        self.outlier_z = outlier_z
         self.verbose = verbose
-
+        self.show_plots = bool(show_plots)
         if auto_clean:
             try:
                 self.clean_data()
@@ -58,7 +57,6 @@ class SpeedDatingEDA:
             ("remove_duplicates", lambda: self.data.drop_duplicates(inplace=True)),
             ("coerce_binary_columns", lambda: self._coerce_binary_columns(['match', 'decision', 'decision_o'])),
             ("simple_impute", self._simple_impute),
-            ("remove_outliers_zscore", lambda: self._remove_outliers_zscore(self.outlier_z)),
         ]
 
         for name, func in steps:
@@ -400,7 +398,10 @@ class SpeedDatingEDA:
             plt.text(0.5, 0.5, 'No non-null values to plot', horizontalalignment='center')
 
         plt.tight_layout()
-        plt.show()
+        # After any plt.show() do:
+        if self.show_plots:
+            plt.show()
+        plt.close()  # always close (safe)
 
     def demographic_analysis(self):
         """Analyze demographic variables"""
@@ -493,7 +494,10 @@ class SpeedDatingEDA:
             plt.xlabel('Age Difference')
 
         plt.tight_layout()
-        plt.show()
+        # After any plt.show() do:
+        if self.show_plots:
+            plt.show()
+        plt.close()  # always close (safe)
 
     def preference_analysis(self):
         """Analyze preference-related variables"""
@@ -528,7 +532,10 @@ class SpeedDatingEDA:
                     plt.ylabel('Frequency')
 
             plt.tight_layout()
-            plt.show()
+            # After any plt.show() do:
+            if self.show_plots:
+                plt.show()
+            plt.close()  # always close (safe)
 
             # Summary statistics
             print("\nPreference Statistics:")
@@ -563,7 +570,10 @@ class SpeedDatingEDA:
                         square=True, fmt='.2f', cbar_kws={'shrink': 0.8})
             plt.title('Correlation Heatmap of Top Features with Target')
             plt.tight_layout()
-            plt.show()
+            # After any plt.show() do:
+            if self.show_plots:
+                plt.show()
+            plt.close()  # always close (safe)
 
         else:
             print(f"Target column '{target_col}' not found in numeric columns")
@@ -615,7 +625,10 @@ class SpeedDatingEDA:
 
             plt.tight_layout()
 
-        plt.show()
+        # After any plt.show() do:
+        if self.show_plots:
+            plt.show()
+        plt.close()  # always close (safe)
 
         # Statistical test for key variables
         print("\nStatistical significance of key variables with match success:")
@@ -667,7 +680,10 @@ class SpeedDatingEDA:
                 plt.title('Interests Correlation vs Like Score')
 
             plt.tight_layout()
-            plt.show()
+            # After any plt.show() do:
+            if self.show_plots:
+                plt.show()
+            plt.close()  # always close (safe)
 
             # Correlation statistics
             if 'match' in self.data.columns and pd.api.types.is_numeric_dtype(self.data['interests_correlate']):
@@ -702,7 +718,10 @@ class SpeedDatingEDA:
                 plt.xticks(rotation=45)
 
         plt.tight_layout()
-        plt.show()
+        # After any plt.show() do:
+        if self.show_plots:
+            plt.show()
+        plt.close()  # always close (safe)
 
         # Decision vs actual match
         if 'decision' in self.data.columns and 'match' in self.data.columns:
@@ -737,31 +756,56 @@ class SpeedDatingEDA:
 
 
 # Usage example:
-def load_and_analyze_data(file_path, auto_clean=True, drop_threshold=0.5, outlier_z=4.0, verbose=False):
+def compute_target(df: pd.DataFrame,
+                   match_col: str = 'match',
+                   decision_col: str = 'decision',
+                   new_col: str = 'target') -> pd.DataFrame:
     """
-    Load the speed dating data and run comprehensive EDA
+    Создаёт булеву колонку `new_col`: True когда оба столбца match_col и decision_col истинны.
+    Работает с числовыми и строковыми представлениями ('yes','no','1','0','true','false' и т.д.).
+    """
+    df = df.copy()
 
-    Parameters:
-    file_path (str): Path to the CSV file
-    auto_clean (bool): Whether to run automatic cleaning upon loading
-    drop_threshold (float): Fraction of missing values above which a column is dropped
-    outlier_z (float): z-score threshold used to optionally remove extreme outliers
-    verbose (bool): If True, print more debug output from the cleaner
-    """
+    def to_binary(series: pd.Series) -> pd.Series:
+        if pd.api.types.is_numeric_dtype(series):
+            return series.fillna(0).astype(int)
+        s = series.astype(str).str.lower().str.strip()
+        mapping = {'yes': 1, 'y': 1, 'true': 1, 't': 1, '1': 1,
+                   'no': 0, 'n': 0, 'false': 0, 'f': 0, '0': 0}
+        s_mapped = s.replace(mapping)
+        coerced = pd.to_numeric(s_mapped, errors='coerce').fillna(0).astype(int)
+        return coerced
+
+    if match_col not in df.columns or decision_col not in df.columns:
+        print(f"Columns `{match_col}` and/or `{decision_col}` not found; `{new_col}` not created.")
+        return df
+
     try:
-        # Load the data
+        m = to_binary(df[match_col])
+        d = to_binary(df[decision_col])
+        df[new_col] = (m == 1) & (d == 1)
+        print(f"Created boolean column `{new_col}` from `{match_col}` and `{decision_col}`.")
+    except Exception as e:
+        print(f"Failed to compute `{new_col}`: {e}")
+    return df
+
+
+# Изменённый фрагмент load_and_analyze_data: вызывайте compute_target до инициализации EDA
+def load_and_analyze_data(file_path, auto_clean=True, drop_threshold=0.5, outlier_z=4.0, verbose=False):
+    try:
         df = pd.read_csv(file_path)
         print(f"Data loaded successfully: {df.shape}")
 
-        # Initialize and run EDA
-        eda = SpeedDatingEDA(df, auto_clean=auto_clean, drop_threshold=drop_threshold, outlier_z=outlier_z, verbose=verbose)
-        eda.comprehensive_eda()
+        # Создаём целевую булеву колонку и используем её в EDA
+        df = compute_target(df, match_col='match', decision_col='decision', new_col='target')
+
+        eda = SpeedDatingEDA(df, auto_clean=auto_clean, drop_threshold=drop_threshold, verbose=verbose)
+        eda.comprehensive_eda(target_col='target')
 
         return df, eda
 
     except Exception as e:
         print(f"Error loading data: {e}")
-        traceback.print_exc()
         return None, None
 
 
